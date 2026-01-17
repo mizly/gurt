@@ -17,7 +17,8 @@ import {
     cancelQueue,
     stopGame,
     addScore,
-    closeGameOver
+    closeGameOver,
+    dismissQueueModal // Added
 } from './ui.js';
 import { connectWallet } from './wallet.js';
 
@@ -32,6 +33,7 @@ window.addScore = addScore;
 window.closeGameOver = closeGameOver;
 window.connectWallet = connectWallet;
 window.closeLoadout = closeLoadout;
+window.dismissQueueModal = dismissQueueModal; // Added
 
 // Landing Screen Logic
 const enterBtn = document.getElementById('enter-btn');

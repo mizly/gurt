@@ -42,6 +42,43 @@ export function setConnectionState(connected) {
     }
 }
 
+// Audio Logic
+const customNotificationSound = new Audio('/static/audio/notification.mp3');
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playNotificationSound() {
+    // Try playing the custom file first
+    const playPromise = customNotificationSound.play();
+
+    if (playPromise !== undefined) {
+        playPromise.catch(error => {
+            console.log("Custom audio file not found or failed, using synth fallback.");
+            playSynthBeep();
+        });
+    }
+}
+
+function playSynthBeep() {
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+    oscillator.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.5); // Drop to A4
+
+    gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.5);
+}
+
 export function updateGameState(state) {
     // Timer & Score
     if (timerDisplay) timerDisplay.textContent = state.time_left;
@@ -71,15 +108,61 @@ export function updateGameState(state) {
         // Show Abort & Sim Controls
         stopBtn.classList.remove('hidden');
         if (simControls) simControls.classList.remove('hidden');
+        // Clear Title
+        document.title = "RoboCommander";
     } else {
         // Am I in queue?
         const position = state.queue.indexOf(myName);
+        const queueModal = document.getElementById('queue-modal');
+        const loadoutModal = document.getElementById('loadout-modal');
+        const isConfirming = loadoutModal && loadoutModal.classList.contains('active');
+
         if (position !== -1) {
             playerStatus.textContent = `QUEUE #${position + 1}`;
             playerStatus.className = "text-[10px] font-bold tracking-wide uppercase text-ios-yellow bg-ios-yellow/10 px-2 py-0.5 rounded-full";
+
+            // ETA Calculation: (Position) * 60s + Time Left
+            let etaSeconds = (position * 60);
+            if (state.active) etaSeconds += state.time_left;
+            else etaSeconds += 60; // Next game start buffer
+
+            // Formatting
+            const mins = Math.floor(etaSeconds / 60);
+            const secs = etaSeconds % 60;
+            const etaString = `${mins}:${secs.toString().padStart(2, '0')}`;
+
+            // Only update title/modal if we are NOT in the confirmation phase
+            if (!isConfirming) {
+                document.title = `(${etaString}) Waiting...`;
+
+                // Show Modal IF not already in match confirmation and newly joined (implied by existence in queue but no match found yet)
+                // Logic: If I am in queue, and not confirming (handled by handleMatchFound closing this), show it.
+                // But we don't want it to pop up if we just closed it manually? 
+                // The user said "if you start up a game... show a modal".
+                // Let's control it via class.
+
+                // Show Modal IF not already in match confirmation and newly joined
+                // Use explicit check for dismissal flag
+                const isDismissed = localStorage.getItem('queue_modal_dismissed') === 'true';
+
+                if (queueModal && queueModal.classList.contains('hidden') && !isDismissed) {
+                    if (position > 0 || (position === 0 && state.active)) {
+                        queueModal.classList.remove('hidden');
+                    }
+                }
+
+                // Update ETA text in modal
+                const etaDisplay = document.getElementById('queue-eta');
+                if (etaDisplay) etaDisplay.textContent = etaString;
+            }
+            // NOTE: If isConfirming, we do NOTHING to title here, letting handleMatchFound control it.
+
         } else {
             playerStatus.textContent = "SPECTATING";
             playerStatus.className = "text-[10px] font-bold tracking-wide uppercase text-white/50 bg-white/10 px-2 py-0.5 rounded-full";
+            // Hide Queue Modal if not in queue
+            if (queueModal) queueModal.classList.add('hidden');
+            if (!isConfirming) document.title = "RoboCommander";
         }
         // Hide control buttons
         stopBtn.classList.add('hidden');
@@ -189,11 +272,32 @@ export function requestLoadout() {
         alert("Please enter a name first.");
         return;
     }
+
+    // Unlock Audio Context on user interaction (resume context)
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+    // Try to unlock custom sound (play/pause) to allow it later
+    customNotificationSound.play().then(() => {
+        customNotificationSound.pause();
+        customNotificationSound.currentTime = 0;
+    }).catch(() => { }); // Ignore initial failure if file missing
+
+    // Explicitly un-dismiss modal on new request
+    localStorage.removeItem('queue_modal_dismissed');
     sendJson({ action: "join_queue", name: myName });
 }
 
 export function cancelQueue() {
     sendJson({ action: "leave_queue" });
+}
+
+export function dismissQueueModal() {
+    const modal = document.getElementById('queue-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        localStorage.setItem('queue_modal_dismissed', 'true');
+    }
 }
 
 export function stopGame() {
@@ -227,6 +331,18 @@ export function selectTank(id) {
 export function handleMatchFound(timeoutSeconds) {
     const modal = document.getElementById('loadout-modal');
     const timerElem = document.getElementById('loadout-timer');
+    const queueModal = document.getElementById('queue-modal');
+
+    // Hide Queue Modal
+    if (queueModal) queueModal.classList.add('hidden');
+
+    // Play Sound
+    try {
+        playNotificationSound();
+    } catch (e) { console.warn("Audio play failed", e); }
+
+    // Update Title
+    document.title = "ACTION REQUIRED!";
 
     // Reset Button State
     const deployBtn = document.getElementById('deploy-btn');
