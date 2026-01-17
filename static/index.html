@@ -311,7 +311,8 @@
 
             <header class="text-center mb-10">
                 <h2 class="text-3xl font-semibold text-white mb-2">Select Your Chassis</h2>
-                <p class="text-white/50">Choose a loadout configuration for this mission.</p>
+                <p class="text-white/50">Confirm deployment in <span id="loadout-timer"
+                        class="text-ios-yellow font-mono font-bold">30</span>s</p>
             </header>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -622,8 +623,14 @@
                         </div>
 
                         <button onclick="requestLoadout()" id="join-btn"
-                            class="w-full bg-ios-blue hover:bg-[#0071e3] text-white font-medium py-3.5 rounded-xl transition-all shadow-lg shadow-ios-blue/20 active:scale-[0.98]">
+                            class="w-full bg-ios-blue hover:bg-[#0071e3] text-white font-medium py-3.5 rounded-xl transition-all shadow-lg shadow-ios-blue/20 active:scale-[0.98]"
+                            aria-label="Initialize Uplink">
                             Initialize Uplink
+                        </button>
+
+                        <button onclick="cancelQueue()" id="cancel-btn"
+                            class="w-full bg-ios-red hover:bg-red-600 text-white font-medium py-3.5 rounded-xl transition-all shadow-lg shadow-ios-red/20 active:scale-[0.98] hidden">
+                            Abort Connection
                         </button>
 
                         <!-- Queue Status -->

@@ -47,6 +47,11 @@ class ConnectionManager:
         # List of {"name": str, "ws": WebSocket}
         self.waiting_queue: List[Dict] = []
         self.current_player_ws: Optional[WebSocket] = None
+        
+        # Confirmation System
+        self.confirming_player_ws: Optional[WebSocket] = None
+        self.confirming_player_data: Optional[Dict] = None
+        self.confirmation_task: Optional[asyncio.Task] = None
 
     async def connect(self, websocket: WebSocket, client_type: str):
         await websocket.accept()
@@ -70,6 +75,15 @@ class ConnectionManager:
             if websocket == self.current_player_ws:
                 print("Current player disconnected!")
                 asyncio.create_task(self.end_game())
+            
+            # If confirming player disconnects
+            if websocket == self.confirming_player_ws:
+                print("Confirming player disconnected!")
+                self.confirming_player_ws = None
+                self.confirming_player_data = None
+                if self.confirmation_task:
+                    self.confirmation_task.cancel()
+                asyncio.create_task(self.try_start_next_game())
                 
             print("Web Client Disconnected")
             
@@ -122,7 +136,7 @@ class ConnectionManager:
             except:
                 pass
 
-    async def join_queue(self, websocket: WebSocket, name: str, loadout: dict = None):
+    async def join_queue(self, websocket: WebSocket, name: str):
         # Check if already in queue
         for p in self.waiting_queue:
             if p["ws"] == websocket:
@@ -130,38 +144,102 @@ class ConnectionManager:
 
         entry = {
             "name": name or "Anonymous", 
-            "ws": websocket,
-            "loadout": loadout or {"id": "vanguard", "name": "Vanguard"} # Default
+            "ws": websocket
         }
         self.waiting_queue.append(entry)
         await self.broadcast_game_update()
         
         # If game is not active and no one is playing, try to start
-        if not self.game_state.is_active and self.current_player_ws is None:
+        if not self.game_state.is_active and self.current_player_ws is None and self.confirming_player_ws is None:
             await self.try_start_next_game()
 
+    async def leave_queue(self, websocket: WebSocket):
+        # Remove from wait queue if there
+        self.waiting_queue = [p for p in self.waiting_queue if p["ws"] != websocket]
+        
+        # Also check if they are the one currently confirming
+        if websocket == self.confirming_player_ws:
+            print(f"Player {self.confirming_player_data['name']} cancelled during confirmation.")
+            self.confirming_player_ws = None
+            self.confirming_player_data = None
+            if self.confirmation_task:
+                self.confirmation_task.cancel()
+            
+            # They cancelled, so we should look for the next person
+            await self.broadcast_game_update()
+            await self.try_start_next_game()
+            return
+
+        await self.broadcast_game_update()
+
     async def try_start_next_game(self):
+        # If we are already confirming someone or playing, don't start
+        if self.game_state.is_active or self.confirming_player_ws:
+            return
+
         if self.waiting_queue:
             next_player = self.waiting_queue.pop(0)
-            self.current_player_ws = next_player["ws"]
+            self.confirming_player_ws = next_player["ws"]
+            self.confirming_player_data = next_player
+            
+            # Send match found event to specific player
+            try:
+                await self.confirming_player_ws.send_text(json.dumps({
+                    "type": "match_found",
+                    "timeout": 30
+                }))
+                
+                # Start timeout task
+                self.confirmation_task = asyncio.create_task(self.confirmation_timeout())
+                print(f"Match found for {next_player['name']}, waiting for confirmation...")
+            except:
+                # If sending fails, they likely disconnected. Try next.
+                print("Failed to contact candidate, moving to next...")
+                self.confirming_player_ws = None
+                await self.try_start_next_game()
+        else:
+            self.current_player_ws = None
+            
+    async def confirmation_timeout(self):
+        try:
+            await asyncio.sleep(30)
+            # Timeout happened
+            if self.confirming_player_ws:
+                print(f"Confirmation timed out for {self.confirming_player_data['name']}")
+                # Notify them they missed it?
+                try:
+                    await self.confirming_player_ws.send_text(json.dumps({"type": "match_timeout"}))
+                except:
+                    pass
+                    
+                self.confirming_player_ws = None
+                self.confirming_player_data = None
+                
+                # IMPORTANT: Broadcast so the user's UI resets (removes "Abort" button)
+                await self.broadcast_game_update()
+                
+                await self.try_start_next_game()
+        except asyncio.CancelledError:
+            pass
+
+    async def confirm_match(self, websocket: WebSocket, loadout: dict):
+        if websocket == self.confirming_player_ws:
+            if self.confirmation_task:
+                self.confirmation_task.cancel()
             
             # Start Game
+            self.current_player_ws = websocket
+            self.confirming_player_ws = None
+            
             self.game_state.is_active = True
             self.game_state.start_time = time.time()
             self.game_state.score = 0
-            self.game_state.player_name = next_player["name"]
-            # Store loadout in game_state if needed (can add a field to GameState dataclass or just log it for now)
-            print(f"Game Started for {self.game_state.player_name} with loadout {next_player['loadout'].get('name')}")
+            self.game_state.player_name = self.confirming_player_data["name"]
             
-            print(f"Game Started for {self.game_state.player_name}")
+            print(f"Game Started for {self.game_state.player_name} with loadout {loadout.get('name')}")
             await self.broadcast_game_update()
             
-            # Start timer loop if not already running (managed via check in broadcast)
-            # Actually, we need a dedicated loop or just rely on ticks. 
-            # Previous implementation created a task. Let's do that.
             asyncio.create_task(self.game_timer())
-        else:
-            self.current_player_ws = None
 
     async def end_game(self):
         if self.game_state.is_active:
@@ -223,7 +301,13 @@ async def websocket_endpoint(websocket: WebSocket, client_type: str):
                     if action == "join_queue":
                         await manager.join_queue(
                             websocket, 
-                            data.get("name", "Player"),
+                            data.get("name", "Player")
+                        )
+                    elif action == "leave_queue":
+                        await manager.leave_queue(websocket)
+                    elif action == "confirm_match":
+                        await manager.confirm_match(
+                            websocket,
                             data.get("loadout")
                         )
                     elif action == "stop_game":

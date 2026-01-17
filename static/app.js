@@ -74,6 +74,11 @@ function connect() {
                 const data = JSON.parse(event.data);
                 if (data.type === 'game_state') {
                     updateGameState(data);
+                } else if (data.type === 'match_found') {
+                    handleMatchFound(data.timeout);
+                } else if (data.type === 'match_timeout') {
+                    closeLoadout();
+                    alert("Match confirmation timed out!");
                 }
             } catch (e) {
                 console.error("Failed to parse JSON", e);
@@ -110,6 +115,7 @@ const queueInfo = document.getElementById('queue-info');
 const queueCount = document.getElementById('queue-count');
 const queueNames = document.getElementById('queue-names');
 const joinBtn = document.getElementById('join-btn');
+const cancelBtn = document.getElementById('cancel-btn');
 const statusDisplay = document.getElementById('status-display');
 const playerStatus = document.getElementById('player-status');
 const currentPilotName = document.getElementById('current-pilot-name');
@@ -118,6 +124,7 @@ const simControls = document.getElementById('sim-controls'); // Debug controls
 
 let myName = "";
 let isMyTurn = false;
+let confirmationTimerInterval = null;
 
 // ... (socket connection logic same as before, updateGameState changes)
 
@@ -154,17 +161,14 @@ function updateGameState(state) {
     }
 
     // Game Mode UI
-    // Game Mode UI
     // Always update button state based on queue presence
     if (state.queue.includes(myName)) {
-        joinBtn.textContent = "Standby...";
-        joinBtn.disabled = true;
-        joinBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        joinBtn.classList.add('hidden');
+        cancelBtn.classList.remove('hidden');
         playerNameInput.disabled = true;
     } else {
-        joinBtn.textContent = "Initialize Uplink";
-        joinBtn.disabled = false;
-        joinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        joinBtn.classList.remove('hidden');
+        cancelBtn.classList.add('hidden');
         playerNameInput.disabled = false;
     }
 
@@ -216,20 +220,51 @@ function renderLeaderboard(data) {
 // ----- LOADOUT LOGIC -----
 let selectedLoadout = { id: 'vanguard', name: 'Vanguard' };
 
+// Join Queue directly now
 window.requestLoadout = () => {
     myName = playerNameInput.value || "Anonymous";
     if (!myName) {
         alert("Please enter a name first.");
         return;
     }
+
+    sendJson({
+        action: "join_queue",
+        name: myName
+    });
+};
+
+window.cancelQueue = () => {
+    sendJson({ action: "leave_queue" });
+};
+
+
+function handleMatchFound(timeoutSeconds) {
     // Open Modal
     const modal = document.getElementById('loadout-modal');
+    const timerElem = document.getElementById('loadout-timer');
     modal.classList.add('active');
-};
+
+    // Start Timer
+    let timeLeft = timeoutSeconds;
+    timerElem.textContent = timeLeft;
+
+    if (confirmationTimerInterval) clearInterval(confirmationTimerInterval);
+
+    confirmationTimerInterval = setInterval(() => {
+        timeLeft--;
+        timerElem.textContent = timeLeft;
+        if (timeLeft <= 0) {
+            clearInterval(confirmationTimerInterval);
+            closeLoadout();
+        }
+    }, 1000);
+}
 
 window.closeLoadout = () => {
     const modal = document.getElementById('loadout-modal');
     modal.classList.remove('active');
+    if (confirmationTimerInterval) clearInterval(confirmationTimerInterval);
 };
 
 window.selectTank = (id) => {
@@ -260,8 +295,7 @@ window.confirmLoadout = () => {
     closeLoadout();
     // Send join request with loadout
     sendJson({
-        action: "join_queue",
-        name: myName,
+        action: "confirm_match",
         loadout: selectedLoadout
     });
 };
