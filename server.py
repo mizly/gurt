@@ -589,26 +589,31 @@ async def websocket_endpoint(websocket: WebSocket, client_type: str):
 
                     await manager.broadcast_to_clients(data)
                     
-                    # 2. Server-side CV processing (Offloaded)
+                    # 2. Server-side CV processing (Throttled & Offloaded)
                     try:
-                        # Process every frame (Offloaded to thread to prevent loop blocking)
-                        loop = asyncio.get_running_loop()
-                        # Run blocking CV code in a thread pool
-                        qr_results = await loop.run_in_executor(None, process_frame_for_qr, data)
-                        
-                        # Broadcast detections if found
-                        if qr_results:
-                            json_payload = json.dumps({
-                                "type": "qr_detected",
-                                "data": qr_results
-                            })
+                        # Only process every 3rd frame to save CPU
+                        if manager.frame_count % 3 == 0:
+                            loop = asyncio.get_running_loop()
+                            # Run blocking CV code in a thread pool
+                            qr_results = await loop.run_in_executor(None, process_frame_for_qr, data)
                             
-                            # Broadcast to all clients
-                            for connection in manager.active_connections:
-                                try:
-                                    await connection.send_text(json_payload)
-                                except:
-                                    pass
+                            # Broadcast detections if found
+                            if qr_results:
+                                json_payload = json.dumps({
+                                    "type": "qr_detected",
+                                    "data": qr_results
+                                })
+                                
+                                # Broadcast to all clients
+                                # We can't use manager.broadcast_game_update logic here easily without duplicating, 
+                                # but we can just loop over connections.
+                                # Note: accessing active_connections is not thread-safe if modified elsewhere, 
+                                # but since we are awaiting result back in the main thread, it is safe here.
+                                for connection in manager.active_connections:
+                                    try:
+                                        await connection.send_text(json_payload)
+                                    except:
+                                        pass
                                     
                     except Exception as e:
                          print(f"CV Error: {e}")
