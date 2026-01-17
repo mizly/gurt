@@ -36,7 +36,7 @@ function connect() {
     // Wait, if binaryType is 'blob', text frames are still strings? 
     // Correction: In JS WebSocket, if binaryType is 'blob', binary frames are Blobs, text frames are strings.
     // So we can check typeof data.
-    
+
     socket.onopen = () => {
         setConnectionState(true);
         requestAnimationFrame(updateLoop);
@@ -80,21 +80,93 @@ function setConnectionState(connected) {
     }
 }
 
+// Queue UI Elements
+const queueInfo = document.getElementById('queue-info');
+const queueCount = document.getElementById('queue-count');
+const queueNames = document.getElementById('queue-names');
+const joinBtn = document.getElementById('join-btn');
+const statusDisplay = document.getElementById('status-display');
+const playerStatus = document.getElementById('player-status');
+const currentPilotName = document.getElementById('current-pilot-name');
+const stopBtn = document.getElementById('stop-btn');
+const simControls = document.querySelector('.pt-4.border-t'); // Debug controls
+
+let myName = "";
+let isMyTurn = false;
+
+// ... (socket connection logic same as before, updateGameState changes)
+
 function updateGameState(state) {
     // Timer & Score
     timerDisplay.textContent = state.time_left;
     scoreDisplay.textContent = state.score;
+    currentPilotName.textContent = state.player || "None"; // Who is playing?
+
+    // Check if it's MY turn
+    isMyTurn = (state.active && state.player === myName);
+
+    // Update Player Status UI
+    statusDisplay.classList.remove('hidden');
+    if (isMyTurn) {
+        playerStatus.textContent = "PILOTING";
+        playerStatus.className = "font-bold text-green-400";
+        // Show Abort & Sim Controls
+        stopBtn.classList.remove('hidden');
+        if (simControls) simControls.classList.remove('hidden');
+    } else {
+        // Am I in queue?
+        const position = state.queue.indexOf(myName);
+        if (position !== -1) {
+            playerStatus.textContent = `IN QUEUE (#${position + 1})`;
+            playerStatus.className = "font-bold text-yellow-400";
+        } else {
+            playerStatus.textContent = "SPECTATING";
+            playerStatus.className = "font-bold text-blue-400";
+        }
+        // Hide control buttons
+        stopBtn.classList.add('hidden');
+        if (simControls) simControls.classList.add('hidden');
+    }
 
     // Game Mode UI
-    if (state.active) {
-        startPanel.classList.add('hidden');
-        gameActivePanel.classList.remove('hidden');
+    // Game Mode UI
+    // Always update button state based on queue presence
+    if (state.queue.includes(myName)) {
+        joinBtn.textContent = "WAITING FOR TURN...";
+        joinBtn.disabled = true;
+        joinBtn.classList.add('opacity-50', 'cursor-not-allowed');
         playerNameInput.disabled = true;
     } else {
+        joinBtn.textContent = "JOIN MISSION QUEUE";
+        joinBtn.disabled = false;
+        joinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        playerNameInput.disabled = false;
+    }
+
+    if (state.active) {
+        gameActivePanel.classList.remove('hidden');
+
+        // Show start panel (join queue) unless we are currently playing
+        if (isMyTurn) {
+            startPanel.classList.add('hidden');
+            playerNameInput.disabled = true;
+        } else {
+            startPanel.classList.remove('hidden');
+        }
+    } else {
+        // Waiting Lobby
         startPanel.classList.remove('hidden');
         gameActivePanel.classList.add('hidden');
-        playerNameInput.disabled = false;
-        timerDisplay.textContent = "0"; // Reset view
+    }
+
+    // Update Queue Info
+    if (state.queue.length > 0) {
+        queueInfo.classList.remove('hidden');
+        queueCount.textContent = state.queue.length;
+        // Show first 3 names
+        queueNames.textContent = state.queue.slice(0, 3).join(', ') + (state.queue.length > 3 ? '...' : '');
+    } else {
+        queueInfo.classList.add('hidden');
     }
 
     // Leaderboard
@@ -117,9 +189,13 @@ function renderLeaderboard(data) {
 }
 
 // Global Game Functions
-window.startGame = () => {
-    const name = playerNameInput.value || "Anonymous";
-    sendJson({ action: "start_game", name: name });
+window.joinQueue = () => {
+    myName = playerNameInput.value || "Anonymous";
+    sendJson({ action: "join_queue", name: myName });
+};
+
+window.stopGame = () => {
+    sendJson({ action: "stop_game" });
 };
 
 window.addScore = (points) => {
@@ -205,8 +281,10 @@ function updateState() {
 function updateLoop() {
     if (socket && socket.readyState === WebSocket.OPEN) {
         updateState();
-        // Send control data as binary
-        socket.send(controllerState);
+        // Send control data ONLY if it is my turn
+        if (isMyTurn) {
+            socket.send(controllerState);
+        }
     }
     requestAnimationFrame(updateLoop);
 }

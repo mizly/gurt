@@ -1,3 +1,4 @@
+import os
 import uvicorn
 import json
 import asyncio
@@ -5,10 +6,28 @@ import time
 from dataclasses import dataclass, field, asdict
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from typing import List, Optional, Dict
 
 app = FastAPI()
+
+LEADERBOARD_FILE = "leaderboard.json"
+
+def load_leaderboard():
+    if os.path.exists(LEADERBOARD_FILE):
+        try:
+            with open(LEADERBOARD_FILE, "r") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+def save_leaderboard(data):
+    with open(LEADERBOARD_FILE, "w") as f:
+        json.dump(data, f)
+
+# Global State
+leaderboard: List[Dict] = load_leaderboard()
 
 @dataclass
 class GameState:
@@ -18,30 +37,42 @@ class GameState:
     player_name: str = "Anonymous"
     game_duration: int = 60  # seconds
 
-# Global Leaderboard
-leaderboard: List[Dict] = []
-
 class ConnectionManager:
     def __init__(self):
-        self.client_ws: Optional[WebSocket] = None
+        self.active_connections: List[WebSocket] = [] # All connected clients
         self.pi_ws: Optional[WebSocket] = None
         self.game_state = GameState()
+        
+        # Queue System
+        # List of {"name": str, "ws": WebSocket}
+        self.waiting_queue: List[Dict] = []
+        self.current_player_ws: Optional[WebSocket] = None
 
     async def connect(self, websocket: WebSocket, client_type: str):
         await websocket.accept()
         if client_type == "client":
-            self.client_ws = websocket
+            self.active_connections.append(websocket)
             print("Web Client Connected")
-            # Send initial state
             await self.broadcast_game_update()
         elif client_type == "pi":
             self.pi_ws = websocket
             print("Pi Client Connected")
 
-    def disconnect(self, client_type: str):
+    def disconnect(self, websocket: WebSocket, client_type: str):
         if client_type == "client":
-            self.client_ws = None
+            if websocket in self.active_connections:
+                self.active_connections.remove(websocket)
+            
+            # Remove from queue if present
+            self.waiting_queue = [p for p in self.waiting_queue if p["ws"] != websocket]
+            
+            # If current player disconnects, end game or pass turn
+            if websocket == self.current_player_ws:
+                print("Current player disconnected!")
+                asyncio.create_task(self.end_game())
+                
             print("Web Client Disconnected")
+            
         elif client_type == "pi":
             self.pi_ws = None
             print("Pi Client Disconnected")
@@ -50,41 +81,81 @@ class ConnectionManager:
         if self.pi_ws:
             await self.pi_ws.send_bytes(message)
 
-    async def broadcast_to_client(self, message: bytes):
-        if self.client_ws:
-            await self.client_ws.send_bytes(message)
+    async def broadcast_to_clients(self, message: bytes):
+        # Broadcast video to ALL connected clients (spectators included)
+        for connection in self.active_connections:
+            try:
+                await connection.send_bytes(message)
+            except:
+                pass
     
     async def broadcast_game_update(self):
-        """Send current game state and leaderboard to web client"""
-        if self.client_ws:
-            time_left = 0
-            if self.game_state.is_active:
-                elapsed = time.time() - self.game_state.start_time
-                time_left = max(0, self.game_state.game_duration - int(elapsed))
-                
-                if time_left == 0:
-                    await self.end_game()
-                    return
+        """Send current game state, queue, and leaderboard to ALL clients"""
+        
+        # Calculate time left
+        time_left = 0
+        if self.game_state.is_active:
+            elapsed = time.time() - self.game_state.start_time
+            time_left = max(0, self.game_state.game_duration - int(elapsed))
+            
+            if time_left == 0:
+                await self.end_game()
+                return
 
-            payload = {
-                "type": "game_state",
-                "active": self.game_state.is_active,
-                "time_left": time_left,
-                "score": self.game_state.score,
-                "player": self.game_state.player_name,
-                "leaderboard": sorted(leaderboard, key=lambda x: x['score'], reverse=True)[:10]
-            }
-            await self.client_ws.send_text(json.dumps(payload))
+        payload = {
+            "type": "game_state",
+            "active": self.game_state.is_active,
+            "time_left": time_left,
+            "score": self.game_state.score,
+            "player": self.game_state.player_name,
+            "queue": [p["name"] for p in self.waiting_queue],
+            "leaderboard": sorted(leaderboard, key=lambda x: x['score'], reverse=True)[:10]
+        }
+        
+        json_payload = json.dumps(payload)
+        
+        for connection in self.active_connections:
+            try:
+                # Personalize the update? (e.g. "is_turn": True)
+                # For now, send same state, frontend checks name match or just implies it
+                await connection.send_text(json_payload)
+            except:
+                pass
 
-    async def start_game(self, name: str):
-        self.game_state.is_active = True
-        self.game_state.start_time = time.time()
-        self.game_state.score = 0
-        self.game_state.player_name = name or "Anonymous"
-        print(f"Game Started for {self.game_state.player_name}")
+    async def join_queue(self, websocket: WebSocket, name: str):
+        # Check if already in queue
+        for p in self.waiting_queue:
+            if p["ws"] == websocket:
+                return # Already in queue
+
+        entry = {"name": name or "Anonymous", "ws": websocket}
+        self.waiting_queue.append(entry)
         await self.broadcast_game_update()
-        # Start timer loop
-        asyncio.create_task(self.game_timer())
+        
+        # If game is not active and no one is playing, try to start
+        if not self.game_state.is_active and self.current_player_ws is None:
+            await self.try_start_next_game()
+
+    async def try_start_next_game(self):
+        if self.waiting_queue:
+            next_player = self.waiting_queue.pop(0)
+            self.current_player_ws = next_player["ws"]
+            
+            # Start Game
+            self.game_state.is_active = True
+            self.game_state.start_time = time.time()
+            self.game_state.score = 0
+            self.game_state.player_name = next_player["name"]
+            
+            print(f"Game Started for {self.game_state.player_name}")
+            await self.broadcast_game_update()
+            
+            # Start timer loop if not already running (managed via check in broadcast)
+            # Actually, we need a dedicated loop or just rely on ticks. 
+            # Previous implementation created a task. Let's do that.
+            asyncio.create_task(self.game_timer())
+        else:
+            self.current_player_ws = None
 
     async def end_game(self):
         if self.game_state.is_active:
@@ -97,8 +168,14 @@ class ConnectionManager:
                 "score": self.game_state.score,
                 "date": time.strftime("%Y-%m-%d %H:%M")
             })
+            save_leaderboard(leaderboard)
             
+            self.current_player_ws = None
             await self.broadcast_game_update()
+            
+            # Wait a bit then start next
+            await asyncio.sleep(3)
+            await self.try_start_next_game()
 
     async def add_score(self, points: int):
         if self.game_state.is_active:
@@ -116,8 +193,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 async def get():
-    with open("static/index.html", "r") as f:
-        return HTMLResponse(f.read())
+    return FileResponse("static/index.html")
 
 @app.websocket("/ws/{client_type}")
 async def websocket_endpoint(websocket: WebSocket, client_type: str):
@@ -125,37 +201,42 @@ async def websocket_endpoint(websocket: WebSocket, client_type: str):
     try:
         while True:
             if client_type == "client":
-                # Handle mixed content (Binary for controls, Text for JSON commands)
+                # Handle mixed content
                 message = await websocket.receive()
                 
                 if "bytes" in message:
                     data = message["bytes"]
-                    # Forward control data to Pi
-                    if len(data) == 8:
-                        # Optional: Parse stats here if needed
-                        pass
-                    await manager.broadcast_to_pi(data)
+                    # ONLY forward controls if this is the current player
+                    if manager.current_player_ws == websocket and manager.game_state.is_active:
+                        await manager.broadcast_to_pi(data)
                     
                 elif "text" in message:
                     data = json.loads(message["text"])
                     action = data.get("action")
                     
-                    if action == "start_game":
-                        await manager.start_game(data.get("name", "Player"))
+                    if action == "join_queue":
+                        await manager.join_queue(websocket, data.get("name", "Player"))
+                    elif action == "stop_game":
+                        # Only current player can stop
+                        if manager.current_player_ws == websocket:
+                            await manager.end_game()
                     elif action == "add_score":
-                        await manager.add_score(data.get("score", 0))
+                        # In real app, this comes from Pi, but for dev we allow client sim
+                        # Allow sim only if playing
+                        if manager.current_player_ws == websocket:
+                            await manager.add_score(data.get("score", 0))
 
             elif client_type == "pi":
-                # Pi only needs to send video bytes
+                # Pi sends video bytes
                 data = await websocket.receive_bytes()
-                await manager.broadcast_to_client(data)
+                await manager.broadcast_to_clients(data)
                 
     except WebSocketDisconnect:
-        manager.disconnect(client_type)
+        manager.disconnect(websocket, client_type)
     except Exception as e:
         print(f"Error in {client_type}: {e}")
-        manager.disconnect(client_type)
+        # manager.disconnect(websocket, client_type) # Already handled usually
 
 if __name__ == "__main__":
-    print("Server starting. Access the web interface at: http://localhost:8000")
+    print("Server starting. Access at: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
