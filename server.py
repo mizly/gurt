@@ -32,7 +32,13 @@ async def websocket_endpoint(websocket: WebSocket, client_type: str):
     try:
         while True:
             # We receive the raw message dictionary (bytes or text)
-            message = await websocket.receive()
+            try:
+                message = await websocket.receive()
+            except RuntimeError as e:
+                if "disconnect message has been received" in str(e):
+                    print(f"Force closing loop for {client_type} due to receive-after-disconnect.")
+                    break
+                raise e
             
             if client_type == "client":
                 await manager.process_client_message(websocket, message)
@@ -40,12 +46,18 @@ async def websocket_endpoint(websocket: WebSocket, client_type: str):
                 await manager.process_pi_message(websocket, message)
                 
     except WebSocketDisconnect:
-        manager.disconnect(websocket, client_type)
+        print(f"{client_type} Disconnected (WebSocketDisconnect)")
     except Exception as e:
-        print(f"Error in {client_type}: {e}")
-        # Ensure cleanup if loop crashes
-        if websocket.client_state.name == "CONNECTED":
+        # Ignore normal disconnect errors
+        if "disconnect" not in str(e).lower():
+            print(f"Error in {client_type}: {e}")
+    finally:
+        print(f"Cleaning up {client_type} connection...")
+        manager.disconnect(websocket, client_type)
+        try:
              await websocket.close()
+        except:
+             pass
 
 if __name__ == "__main__":
     print("Server starting. Access at: http://localhost:8000")
