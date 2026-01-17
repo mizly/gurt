@@ -100,6 +100,35 @@ def save_leaderboard(data):
     with open(LEADERBOARD_FILE, "w") as f:
         json.dump(data, f)
 
+def process_frame_for_qr(image_bytes):
+    try:
+        # Convert bytes to numpy array
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if frame is None:
+            return []
+
+        # Detect QR Codes
+        detector = cv2.QRCodeDetector()
+        retval, decoded_info, points, _ = detector.detectAndDecodeMulti(frame)
+        
+        qr_results = []
+        if retval:
+            points = points.astype(int)
+            for i, text in enumerate(decoded_info):
+                if text:
+                    # Convert numpy int32 to python int for JSON serialization
+                    bbox = points[i].tolist() 
+                    qr_results.append({
+                        "text": text,
+                        "bbox": bbox
+                    })
+        return qr_results
+    except Exception as e:
+        print(f"CV Process Error: {e}")
+        return []
+
 # Global State
 leaderboard: List[Dict] = load_leaderboard()
 
@@ -558,47 +587,33 @@ async def websocket_endpoint(websocket: WebSocket, client_type: str):
                     if manager.frame_count % 30 == 0:
                         print(f"Server received video frame {manager.frame_count} ({len(data)} bytes)")
 
-                    # 1. Forward raw video to clients
                     await manager.broadcast_to_clients(data)
                     
-                    # 2. Server-side CV processing
+                    # 2. Server-side CV processing (Throttled & Offloaded)
                     try:
-                        # Convert bytes to numpy array
-                        nparr = np.frombuffer(data, np.uint8)
-                        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-                        
-                        if frame is not None:
-                            # Detect QR Codes
-                            detector = cv2.QRCodeDetector()
-                            retval, decoded_info, points, _ = detector.detectAndDecodeMulti(frame)
+                        # Only process every 5th frame to save CPU
+                        if manager.frame_count % 5 == 0:
+                            loop = asyncio.get_running_loop()
+                            # Run blocking CV code in a thread pool
+                            qr_results = await loop.run_in_executor(None, process_frame_for_qr, data)
                             
-                            qr_results = []
-                            if retval:
-                                points = points.astype(int)
-                                for i, text in enumerate(decoded_info):
-                                    if text:
-                                        # Convert numpy int32 to python int for JSON serialization
-                                        bbox = points[i].tolist() 
-                                        qr_results.append({
-                                            "text": text,
-                                            "bbox": bbox
-                                        })
-                            
-                            # Broadcast detections
-                            if qr_results: # Only send if found to save bandwidth? Or send empty?
-                                # Sending empty is useful to clear canvas.
-                                pass 
-                            
-                            json_payload = json.dumps({
-                                "type": "qr_detected",
-                                "data": qr_results
-                            })
-                            
-                            for connection in manager.active_connections:
-                                try:
-                                    await connection.send_text(json_payload)
-                                except:
-                                    pass
+                            # Broadcast detections if found
+                            if qr_results:
+                                json_payload = json.dumps({
+                                    "type": "qr_detected",
+                                    "data": qr_results
+                                })
+                                
+                                # Broadcast to all clients
+                                # We can't use manager.broadcast_game_update logic here easily without duplicating, 
+                                # but we can just loop over connections.
+                                # Note: accessing active_connections is not thread-safe if modified elsewhere, 
+                                # but since we are awaiting result back in the main thread, it is safe here.
+                                for connection in manager.active_connections:
+                                    try:
+                                        await connection.send_text(json_payload)
+                                    except:
+                                        pass
                                     
                     except Exception as e:
                          print(f"CV Error: {e}")
