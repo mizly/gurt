@@ -47,6 +47,31 @@ async def send_video(websocket):
                 # Add text
                 cv2.putText(frame, f"Simulated Pi: {time.time()}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
+            # QR Code Detection
+            detector = cv2.QRCodeDetector()
+            data, points, _ = detector.detectAndDecode(frame)
+            
+            if data:
+                # points usually comes as a list of points in a numpy array
+                if points is not None:
+                    points = points.astype(int)
+                    # Draw bounding box
+                    # Draw bounding box
+                    # points shape is (1, 4, 2)
+                    bbox = points[0]
+                    n = len(bbox)
+                    for i in range(n):
+                        pt1 = tuple(bbox[i])
+                        pt2 = tuple(bbox[(i+1)%n])
+                        cv2.line(frame, pt1, pt2, (0, 255, 0), 3)
+                    
+                    # Display Text above the first point
+                    text_pos = tuple(points[0][0])
+                    cv2.putText(frame, data, (text_pos[0], text_pos[1] - 10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                    
+                    print(f"\rQR Detected: {data}", end="", flush=True)
+
             # Compress to JPEG
             _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
             
