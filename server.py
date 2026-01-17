@@ -77,4 +77,5 @@ async def websocket_endpoint(websocket: WebSocket, client_type: str):
         manager.disconnect(client_type)
 
 if __name__ == "__main__":
+    print("Server starting. Access the web interface at: http://localhost:8000")
     uvicorn.run(app, host="0.0.0.0", port=8000)
