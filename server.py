@@ -1,6 +1,8 @@
 import os
 import uvicorn
 import json
+import cv2
+import numpy as np
 import asyncio
 import time
 from dataclasses import dataclass, field, asdict
@@ -323,7 +325,50 @@ async def websocket_endpoint(websocket: WebSocket, client_type: str):
             elif client_type == "pi":
                 # Pi sends video bytes
                 data = await websocket.receive_bytes()
+                
+                # 1. Forward raw video to clients
                 await manager.broadcast_to_clients(data)
+                
+                # 2. Server-side CV processing
+                try:
+                    # Convert bytes to numpy array
+                    nparr = np.frombuffer(data, np.uint8)
+                    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                    
+                    if frame is not None:
+                        # Detect QR Codes
+                        detector = cv2.QRCodeDetector()
+                        retval, decoded_info, points, _ = detector.detectAndDecodeMulti(frame)
+                        
+                        qr_results = []
+                        if retval:
+                            points = points.astype(int)
+                            for i, text in enumerate(decoded_info):
+                                if text:
+                                    # Convert numpy int32 to python int for JSON serialization
+                                    bbox = points[i].tolist() 
+                                    qr_results.append({
+                                        "text": text,
+                                        "bbox": bbox
+                                    })
+                        
+                        # Broadcast detections (even if empty, to clear previous)
+                        # Only broadcast if we have active clients? or just always.
+                        # Always sending might saturate network if 30fps?
+                        # Let's send it.
+                        json_payload = json.dumps({
+                            "type": "qr_detected",
+                            "data": qr_results
+                        })
+                        
+                        for connection in manager.active_connections:
+                            try:
+                                await connection.send_text(json_payload)
+                            except:
+                                pass
+                                
+                except Exception as e:
+                     print(f"CV Error: {e}")
                 
     except WebSocketDisconnect:
         manager.disconnect(websocket, client_type)
