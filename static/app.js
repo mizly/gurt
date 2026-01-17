@@ -424,15 +424,45 @@ window.addEventListener('keyup', (e) => {
 
 function updateState() {
     const gamepads = navigator.getGamepads();
-    const gp = gamepads[0];
+    let gp = null;
+
+    // Find first active gamepad
+    for (const g of gamepads) {
+        if (g && g.connected) {
+            gp = g;
+            break;
+        }
+    }
+
+    // Debug logging for controller connection (throttle logs)
+    if (gp && !window.lastGpStatus) {
+        console.log("Gamepad connected:", gp.id);
+        window.lastGpStatus = true;
+        setConnectionState(true); // Ensure online indicator is green
+    } else if (!gp && window.lastGpStatus) {
+        console.log("Gamepad disconnected");
+        window.lastGpStatus = false;
+    }
 
     if (gp) {
-        controllerState[0] = Math.floor(((gp.axes[0] + 1) / 2) * 255);
-        controllerState[1] = Math.floor(((gp.axes[1] + 1) / 2) * 255);
-        controllerState[2] = Math.floor(((gp.axes[2] + 1) / 2) * 255);
-        controllerState[3] = Math.floor(((gp.axes[3] + 1) / 2) * 255);
-        controllerState[4] = (gp.buttons[6]) ? Math.floor(gp.buttons[6].value * 255) : 0;
-        controllerState[5] = (gp.buttons[7]) ? Math.floor(gp.buttons[7].value * 255) : 0;
+        // Safe access to axes
+        const axis0 = gp.axes[0] || 0;
+        const axis1 = gp.axes[1] || 0;
+        const axis2 = gp.axes[2] || 0;
+        const axis3 = gp.axes[3] || 0;
+
+        controllerState[0] = Math.floor(((axis0 + 1) / 2) * 255);
+        controllerState[1] = Math.floor(((axis1 + 1) / 2) * 255);
+        controllerState[2] = Math.floor(((axis2 + 1) / 2) * 255);
+        controllerState[3] = Math.floor(((axis3 + 1) / 2) * 255);
+
+        // Triggers often mapped to buttons 6/7
+        const btn6 = gp.buttons[6];
+        const btn7 = gp.buttons[7];
+
+        // Handle analog triggers (value) or digital buttons (pressed)
+        controllerState[4] = (btn6 && typeof btn6.value === 'number') ? Math.floor(btn6.value * 255) : (btn6 && btn6.pressed ? 255 : 0);
+        controllerState[5] = (btn7 && typeof btn7.value === 'number') ? Math.floor(btn7.value * 255) : (btn7 && btn7.pressed ? 255 : 0);
 
         let b = 0;
         for (let i = 0; i < 16; i++) {

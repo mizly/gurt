@@ -316,6 +316,14 @@ async def websocket_endpoint(websocket: WebSocket, client_type: str):
                     data = message["bytes"]
                     # ONLY forward controls if this is the current player
                     if manager.current_player_ws == websocket and manager.game_state.is_active:
+                        # Print control bytes for debugging
+                        if len(data) == 8:
+                            analog = list(data[:6])
+                            # Parse 16-bit buttons
+                            buttons_int = int.from_bytes(data[6:], byteorder='little')
+                            buttons_bin = f"{buttons_int:016b}"[::-1]
+                            print(f"Control Data: Analog={analog} Buttons={buttons_bin}")
+
                         await manager.broadcast_to_pi(data)
                     
                 elif "text" in message:
