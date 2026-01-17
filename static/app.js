@@ -74,9 +74,9 @@ function connect() {
 
 function setConnectionState(connected) {
     if (connected) {
-        connectionStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span><span class="text-green-400">Connected</span>';
+        connectionStatus.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-ios-green shadow-[0_0_8px_rgba(48,209,88,0.6)]"></span><span class="text-ios-green">Online</span>';
     } else {
-        connectionStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span><span>Disconnected</span>';
+        connectionStatus.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-ios-red animate-pulse"></span><span>Offline</span>';
     }
 }
 
@@ -89,7 +89,7 @@ const statusDisplay = document.getElementById('status-display');
 const playerStatus = document.getElementById('player-status');
 const currentPilotName = document.getElementById('current-pilot-name');
 const stopBtn = document.getElementById('stop-btn');
-const simControls = document.querySelector('.pt-4.border-t'); // Debug controls
+const simControls = document.getElementById('sim-controls'); // Debug controls
 
 let myName = "";
 let isMyTurn = false;
@@ -109,7 +109,7 @@ function updateGameState(state) {
     statusDisplay.classList.remove('hidden');
     if (isMyTurn) {
         playerStatus.textContent = "PILOTING";
-        playerStatus.className = "font-bold text-green-400";
+        playerStatus.className = "text-[10px] font-bold tracking-wide uppercase text-ios-green bg-ios-green/10 px-2 py-0.5 rounded-full";
         // Show Abort & Sim Controls
         stopBtn.classList.remove('hidden');
         if (simControls) simControls.classList.remove('hidden');
@@ -117,11 +117,11 @@ function updateGameState(state) {
         // Am I in queue?
         const position = state.queue.indexOf(myName);
         if (position !== -1) {
-            playerStatus.textContent = `IN QUEUE (#${position + 1})`;
-            playerStatus.className = "font-bold text-yellow-400";
+            playerStatus.textContent = `QUEUE #${position + 1}`;
+            playerStatus.className = "text-[10px] font-bold tracking-wide uppercase text-ios-yellow bg-ios-yellow/10 px-2 py-0.5 rounded-full";
         } else {
             playerStatus.textContent = "SPECTATING";
-            playerStatus.className = "font-bold text-blue-400";
+            playerStatus.className = "text-[10px] font-bold tracking-wide uppercase text-white/50 bg-white/10 px-2 py-0.5 rounded-full";
         }
         // Hide control buttons
         stopBtn.classList.add('hidden');
@@ -132,12 +132,12 @@ function updateGameState(state) {
     // Game Mode UI
     // Always update button state based on queue presence
     if (state.queue.includes(myName)) {
-        joinBtn.textContent = "WAITING FOR TURN...";
+        joinBtn.textContent = "Standby...";
         joinBtn.disabled = true;
         joinBtn.classList.add('opacity-50', 'cursor-not-allowed');
         playerNameInput.disabled = true;
     } else {
-        joinBtn.textContent = "JOIN MISSION QUEUE";
+        joinBtn.textContent = "Initialize Uplink";
         joinBtn.disabled = false;
         joinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         playerNameInput.disabled = false;
@@ -180,10 +180,10 @@ function renderLeaderboard(data) {
     }
 
     leaderboardBody.innerHTML = data.map((entry, index) => `
-        <tr class="hover:bg-gray-700/30 transition-colors">
-            <td class="py-3 pl-2 text-gray-400 font-mono">#${index + 1}</td>
-            <td class="py-3 font-medium text-blue-300">${entry.name}</td>
-            <td class="py-3 pr-2 text-right text-gray-300 font-bold">${entry.score}</td>
+        <tr class="hover:bg-white/5 transition-colors border-b border-white/5 last:border-0">
+            <td class="py-3 pl-3 text-white/30 font-mono text-xs w-8">${String(index + 1).padStart(2, '0')}</td>
+            <td class="py-3 text-white/80 font-medium text-sm">${entry.name}</td>
+            <td class="py-3 pr-3 text-right text-ios-blue font-semibold text-sm">${entry.score}</td>
         </tr>
     `).join('');
 }

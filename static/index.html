@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="dark antialiased">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Robot Command Center</title>
+    <title>RoboCommander Pro</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -12,178 +12,313 @@
             darkMode: 'class',
             theme: {
                 extend: {
+                    fontFamily: {
+                        sans: ['SF Pro Display', 'Inter', 'system-ui', 'sans-serif'],
+                        mono: ['SF Mono', 'Fira Code', 'monospace'],
+                    },
                     colors: {
-                        brand: {
-                            500: '#3b82f6',
-                            600: '#2563eb',
-                        },
-                        dark: {
-                            800: '#1f2937',
-                            900: '#111827',
+                        ios: {
+                            bg: '#000000',
+                            surface: '#1c1c1e',
+                            surface2: '#2c2c2e',
+                            blue: '#0a84ff',
+                            green: '#30d158',
+                            red: '#ff453a',
+                            yellow: '#ffd60a',
+                            gray: '#8e8e93',
+                            border: 'rgba(255,255,255,0.1)'
                         }
                     },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
+                    backdropBlur: {
+                        xs: '2px',
                     }
                 }
             }
         }
     </script>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Inter', sans-serif;
+            background-color: #000000;
+            color: #f5f5f7;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-image: radial-gradient(circle at 50% 0%, #1a1a1a 0%, #000000 100%);
         }
 
         .glass-panel {
-            background: rgba(31, 41, 55, 0.7);
+            background: rgba(28, 28, 30, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-button {
+            background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-button:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+        }
+
+        .glass-button:active:not(:disabled) {
+            transform: translateY(0);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        /* Apple-style scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .video-container {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .video-container::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 1.5rem;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
 
-<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col items-center p-4">
+<body class="min-h-screen flex flex-col p-6 lg:p-12 overflow-x-hidden selection:bg-ios-blue selection:text-white">
 
-    <!-- Header -->
-    <header class="w-full max-w-6xl flex justify-between items-center mb-6 py-4 border-b border-gray-700">
-        <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
-            🤖 RoboCommander
-        </h1>
-        <div id="connection-status" class="flex items-center space-x-2 text-sm text-red-400">
-            <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-            <span>Disconnected</span>
+    <!-- Header / Nav -->
+    <header class="w-full max-w-7xl mx-auto flex justify-between items-center mb-8 animate-fade-in">
+        <div class="flex items-center gap-3">
+            <div
+                class="w-8 h-8 rounded-lg bg-ios-blue flex items-center justify-center text-white shadow-lg shadow-ios-blue/20">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2 1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                </svg>
+            </div>
+            <h1 class="text-xl font-medium tracking-tight text-white/90">RoboCommander</h1>
+        </div>
+
+        <div id="connection-status"
+            class="glass-panel px-3 py-1.5 rounded-full flex items-center gap-2 text-xs font-medium text-ios-gray transition-all">
+            <!-- JS Inject -->
+            <span class="w-1.5 h-1.5 rounded-full bg-ios-red animate-pulse"></span>
+            <span>Connecting...</span>
         </div>
     </header>
 
-    <main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <main class="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1">
 
-        <!-- Left: Game Controls & Leaderboard -->
-        <aside class="space-y-6">
-
-            <!-- Game Control Panel -->
-            <div class="glass-panel rounded-xl p-6 shadow-xl">
-                <h2 class="text-xl font-semibold mb-4 text-gray-200">Mission Control</h2>
-
-                <!-- Player Name Input (Disabled in Queue?) No, let them type -->
-                <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-400 mb-1">Operative Name</label>
-                    <input type="text" id="player-name" placeholder="Enter codename..."
-                        class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all">
-                </div>
-
-                <!-- Status Display -->
-                <div id="status-display" class="mb-4 text-center hidden">
-                    <div class="inline-block bg-gray-800 px-3 py-1 rounded text-sm text-blue-400 font-mono">
-                        Status: <span id="player-status" class="font-bold text-white">SPECTATING</span>
+        <!-- Main Content: Video Feed & Controls Overlay -->
+        <div class="lg:col-span-8 space-y-6 animate-fade-in" style="animation-delay: 0.1s;">
+            <!-- Video Stage -->
+            <div class="relative w-full aspect-[4/3] bg-[#111] rounded-3xl overflow-hidden video-container group">
+                <!-- Live Badge -->
+                <div class="absolute top-6 left-6 flex items-center gap-2 z-20">
+                    <div
+                        class="px-2 py-1 rounded-md bg-black/40 backdrop-blur-md border border-white/5 text-[10px] uppercase font-bold tracking-wider text-white/80 flex items-center gap-1.5">
+                        <span class="relative flex h-1.5 w-1.5">
+                            <span
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-ios-red opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-ios-red"></span>
+                        </span>
+                        Live Feed
                     </div>
                 </div>
 
-                <!-- Join/Queue Panel -->
-                <div id="start-panel">
-                    <button onclick="joinQueue()" id="join-btn"
-                        class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all transform hover:scale-105 shadow-lg shadow-blue-500/30">
-                        JOIN MISSION QUEUE
-                    </button>
-                    <div id="queue-info" class="mt-3 text-center text-xs text-gray-500 hidden">
-                        <p>In Queue: <span id="queue-count" class="text-white">0</span> operatives</p>
-                        <p id="queue-names" class="text-gray-600 mt-1 italictruncate"></p>
+                <!-- Video Element -->
+                <img id="video-feed" src="" alt="NO SIGNAL"
+                    class="w-full h-full object-cover opacity-90 transition-opacity duration-300">
+
+                <!-- Disconnected Overlay -->
+                <div class="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-10 hidden"
+                    id="video-overlay">
+                    <div class="text-center space-y-2">
+                        <svg class="w-10 h-10 text-white/20 mx-auto" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414" />
+                        </svg>
+                        <p class="text-white/40 text-sm font-medium tracking-wide">Waiting for Transmitter...</p>
                     </div>
                 </div>
 
-                <!-- Active Game Stats (Hidden by default) -->
-                <div id="game-active-panel" class="hidden space-y-4">
-                    <!-- Identity of who is playing -->
-                    <div class="bg-gray-800/50 border border-gray-700 p-2 rounded text-center text-sm mb-2">
-                        <span>Current Pilot:</span>
-                        <span id="current-pilot-name" class="font-bold text-blue-400">---</span>
+                <!-- Control Instructions Overlay (Bottom) -->
+                <div
+                    class="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex items-center gap-4 transition-opacity opacity-0 group-hover:opacity-100 duration-500">
+                    <div
+                        class="px-3 py-1.5 rounded-lg bg-black/40 backdrop-blur-md border border-white/10 text-xs text-white/70 font-mono">
+                        <span class="text-white font-bold">WASD</span> MOVE
                     </div>
+                    <div
+                        class="px-3 py-1.5 rounded-lg bg-black/40 backdrop-blur-md border border-white/10 text-xs text-white/70 font-mono">
+                        <span class="text-white font-bold">ARROWS</span> CAM
+                    </div>
+                    <div
+                        class="px-3 py-1.5 rounded-lg bg-black/40 backdrop-blur-md border border-white/10 text-xs text-white/70 font-mono">
+                        <span class="text-white font-bold">SPACE</span> FIRE
+                    </div>
+                </div>
+            </div>
 
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-gray-800 p-3 rounded-lg text-center">
-                            <div class="text-xs text-gray-400 uppercase">Time Left</div>
-                            <div id="timer-display" class="text-2xl font-mono font-bold text-yellow-400">0</div>
+        </div>
+
+        <!-- Sidebar: Command Deck -->
+        <aside class="lg:col-span-4 space-y-6 animate-fade-in" style="animation-delay: 0.2s;">
+
+            <!-- Dashboard Card -->
+            <div class="glass-panel rounded-3xl p-6 flex flex-col gap-6 relative overflow-hidden">
+                <!-- Decorative Blur -->
+                <div
+                    class="absolute -top-10 -right-10 w-32 h-32 bg-ios-blue/20 blur-[60px] rounded-full pointer-events-none">
+                </div>
+
+                <div class="flex justify-between items-center border-b border-white/5 pb-4">
+                    <h2 class="text-lg font-medium text-white/90">Mission Control</h2>
+                    <div id="status-display" class="hidden">
+                        <span id="player-status"
+                            class="px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide uppercase bg-white/5 text-white/60">
+                            Spectating
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Active Game Mode UI -->
+                <div id="game-active-panel" class="hidden space-y-5">
+                    <div class="flex justify-between items-end">
+                        <div class="text-left">
+                            <span class="block text-xs uppercase text-white/40 font-medium tracking-wider mb-1">Time
+                                Remaining</span>
+                            <span id="timer-display"
+                                class="text-4xl font-light tracking-tight tabular-nums text-ios-yellow">60</span>
                         </div>
-                        <div class="bg-gray-800 p-3 rounded-lg text-center">
-                            <div class="text-xs text-gray-400 uppercase">Score</div>
-                            <div id="score-display" class="text-2xl font-mono font-bold text-green-400">0</div>
+                        <div class="text-right">
+                            <span class="block text-xs uppercase text-white/40 font-medium tracking-wider mb-1">Current
+                                Score</span>
+                            <span id="score-display"
+                                class="text-4xl font-light tracking-tight tabular-nums text-ios-green">0</span>
                         </div>
                     </div>
 
-                    <!-- Stop Button (Visible only to active player) -->
-                    <button id="stop-btn" onclick="stopGame()"
-                        class="hidden w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg transition-all shadow-lg shadow-red-500/30">
-                        ABORT MISSION
-                    </button>
+                    <div class="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div
+                                class="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-xs font-bold text-white/50">
+                                P
+                            </div>
+                            <div>
+                                <div class="text-[10px] text-white/40 uppercase font-medium">Pilot</div>
+                                <div id="current-pilot-name" class="text-sm font-medium text-white/90">Anonymous</div>
+                            </div>
+                        </div>
+                        <div class="h-2 w-2 rounded-full bg-ios-green animate-pulse"></div>
+                    </div>
 
-                    <!-- Sim Controls for testing (Visible only to active player) -->
-                    <div class="pt-4 border-t border-gray-700">
-                        <p class="text-xs text-gray-500 mb-2">DEBUG: Simulate Score</p>
-                        <div class="flex space-x-2">
+                    <!-- Active Controls -->
+                    <div class="pt-2 space-y-3">
+                        <button id="stop-btn" onclick="stopGame()"
+                            class="w-full py-3 rounded-xl bg-ios-red/10 text-ios-red font-medium text-sm hover:bg-ios-red hover:text-white transition-all duration-300 hidden">
+                            Abort Mission
+                        </button>
+
+                        <!-- Sim Controls -->
+                        <div id="sim-controls" class="grid grid-cols-2 gap-2 hidden">
                             <button onclick="addScore(10)"
-                                class="flex-1 bg-gray-700 hover:bg-gray-600 text-xs py-2 rounded">+10 pts</button>
+                                class="glass-button py-2 rounded-lg text-xs font-medium text-white/70 hover:text-white">
+                                +10 Points
+                            </button>
                             <button onclick="addScore(50)"
-                                class="flex-1 bg-gray-700 hover:bg-gray-600 text-xs py-2 rounded">+50 pts</button>
+                                class="glass-button py-2 rounded-lg text-xs font-medium text-white/70 hover:text-white">
+                                +50 Points
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Queue / Join Mode UI -->
+                <div id="start-panel" class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="text-xs text-white/40 font-medium uppercase tracking-wider ml-1">Operative
+                            ID</label>
+                        <input type="text" id="player-name" placeholder="Enter codename"
+                            class="w-full bg-[#1c1c1e] text-white placeholder-white/20 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ios-blue/50 focus:border-ios-blue/50 transition-all">
+                    </div>
+
+                    <button onclick="joinQueue()" id="join-btn"
+                        class="w-full bg-ios-blue hover:bg-[#0071e3] text-white font-medium py-3.5 rounded-xl transition-all shadow-lg shadow-ios-blue/20 active:scale-[0.98]">
+                        Initialize Uplink
+                    </button>
+
+                    <!-- Queue Status -->
+                    <div id="queue-info" class="hidden pt-2">
+                        <div class="h-px w-full bg-white/5 mb-4"></div>
+                        <div class="flex items-start gap-3">
+                            <div class="mt-1 w-1.5 h-1.5 rounded-full bg-ios-yellow"></div>
+                            <div>
+                                <p class="text-xs font-medium text-white/80">Queue Active: <span
+                                        id="queue-count">0</span> pending</p>
+                                <p id="queue-names"
+                                    class="text-[10px] text-white/40 mt-1 leading-relaxed truncate max-w-[200px]"></p>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Leaderboard -->
-            <div class="glass-panel rounded-xl p-6 shadow-xl">
-                <h2 class="text-xl font-semibold mb-4 text-gray-200 flex items-center">
-                    <span class="mr-2">🏆</span> Top Operatives
-                </h2>
-                <div class="overflow-hidden">
-                    <table class="w-full text-sm">
-                        <thead class="text-gray-400 border-b border-gray-700">
-                            <tr>
-                                <th class="pb-2 text-left">Rank</th>
-                                <th class="pb-2 text-left">Name</th>
-                                <th class="pb-2 text-right">Score</th>
-                            </tr>
-                        </thead>
-                        <tbody id="leaderboard-body" class="divide-y divide-gray-700/50">
-                            <!-- Leaderboard items will be injected here -->
-                            <tr class="text-gray-500 italic">
-                                <td colspan="3" class="py-4 text-center">No records yet</td>
+            <!-- Leaderboard Card -->
+            <div class="glass-panel rounded-3xl p-6 flex-1 flex flex-col max-h-[400px]">
+                <h3 class="text-sm font-medium text-white/60 mb-4 uppercase tracking-wider px-1">Top Agents</h3>
+
+                <div class="overflow-y-auto pr-2 -mr-2 space-y-1">
+                    <table class="w-full text-left border-collapse">
+                        <!-- Header hidden for minimalist look -->
+                        <tbody id="leaderboard-body" class="text-sm">
+                            <!-- Injected rows -->
+                            <tr class="text-white/20">
+                                <td class="py-4 text-center text-xs italic">Connecting to database...</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
+
         </aside>
-
-        <!-- Right: Video Feed -->
-        <div class="lg:col-span-2 space-y-4">
-            <div class="glass-panel rounded-xl p-1 overflow-hidden shadow-2xl relative group">
-                <!-- Live indicator -->
-                <div
-                    class="absolute top-4 left-4 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded bg-opacity-80 backdrop-blur-sm z-10 flex items-center">
-                    <span class="w-2 h-2 bg-white rounded-full animate-pulse mr-2"></span> LIVE FEED
-                </div>
-
-                <img id="video-feed" src="" alt="Waiting for connection..."
-                    class="w-full aspect-[4/3] object-cover bg-black rounded-lg">
-
-                <!-- Overlay when disconnected -->
-                <div id="video-overlay"
-                    class="absolute inset-0 bg-black/80 flex items-center justify-center flex-col z-0 hidden">
-                    <p class="text-gray-400 text-lg">Signal Lost</p>
-                </div>
-            </div>
-
-            <!-- Instructions -->
-            <div class="bg-gray-800/50 rounded-lg p-4 text-sm text-gray-400 flex flex-wrap gap-4 justify-center">
-                <div class="flex items-center"><span class="bg-gray-700 px-2 py-1 rounded text-white mr-2">WASD</span>
-                    Move</div>
-                <div class="flex items-center"><span class="bg-gray-700 px-2 py-1 rounded text-white mr-2">Arrows</span>
-                    Cam/Aim</div>
-                <div class="flex items-center"><span class="bg-gray-700 px-2 py-1 rounded text-white mr-2">Space</span>
-                    Fire</div>
-            </div>
-        </div>
 
     </main>
 
