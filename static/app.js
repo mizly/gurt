@@ -7,7 +7,8 @@ const startPanel = document.getElementById('start-panel');
 const gameActivePanel = document.getElementById('game-active-panel');
 const playerNameInput = document.getElementById('player-name');
 
-const wsUrl = `ws://${window.location.host}/ws/client`;
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const wsUrl = `${protocol}//${window.location.host}/ws/client`;
 let socket = null;
 
 // Controller State: 6 Analog, 2 Button Bytes (16 bits)
