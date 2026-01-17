@@ -141,6 +141,8 @@ function connect() {
                 } else if (data.type === 'match_timeout') {
                     closeLoadout();
                     alert("Match confirmation timed out!");
+                } else if (data.type === 'game_over') {
+                    showGameOver(data.stats);
                 } else if (data.type === 'qr_detected') {
                     drawQRCodes(data.data);
                 }
@@ -489,3 +491,31 @@ function updateLoop() {
 }
 
 connect();
+
+// ----- GAME OVER LOGIC -----
+
+function showGameOver(stats) {
+    const modal = document.getElementById('game-over-modal');
+
+    // Animate numbers (simple set for now)
+    document.getElementById('go-score').textContent = stats.score;
+    document.getElementById('go-distance').textContent = stats.distance;
+    document.getElementById('go-shots').textContent = stats.shots;
+    document.getElementById('go-enemies').textContent = stats.enemies;
+
+    // Show
+    modal.style.visibility = 'visible';
+    modal.style.opacity = '1';
+    modal.style.pointerEvents = 'auto';
+    modal.style.transform = 'scale(1)';
+}
+
+window.closeGameOver = () => {
+    const modal = document.getElementById('game-over-modal');
+    modal.style.opacity = '0';
+    modal.style.pointerEvents = 'none';
+    modal.style.transform = 'scale(0.95)';
+    setTimeout(() => {
+        modal.style.visibility = 'hidden';
+    }, 400); // match css transition
+};

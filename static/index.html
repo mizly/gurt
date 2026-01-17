@@ -456,6 +456,53 @@
         </div>
     </div>
 
+    <!-- Game Over Modal -->
+    <div id="game-over-modal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+        style="visibility: hidden; opacity: 0; pointer-events: none; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);">
+        <div class="glass-solid max-w-sm w-full rounded-[2rem] p-8 shadow-2xl relative overflow-hidden text-center">
+
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-ios-blue via-purple-500 to-ios-blue">
+            </div>
+
+            <div class="mb-6">
+                <h2 class="text-3xl font-bold text-white mb-2">Mission Report</h2>
+                <p class="text-white/50 text-sm uppercase tracking-widest">Operation Complete</p>
+            </div>
+
+            <!-- Score -->
+            <div class="mb-8">
+                <div class="text-xs text-white/40 uppercase font-medium tracking-wider mb-2">Final Score</div>
+                <div class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/50 tabular-nums"
+                    id="go-score">0</div>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-3 gap-2 mb-8">
+                <div class="bg-white/5 rounded-xl p-3 border border-white/5">
+                    <div class="text-2xl mb-1">📏</div>
+                    <div class="text-lg font-bold text-white tabular-nums" id="go-distance">0m</div>
+                    <div class="text-[10px] text-white/40 uppercase">Distance</div>
+                </div>
+                <div class="bg-white/5 rounded-xl p-3 border border-white/5">
+                    <div class="text-2xl mb-1">🎯</div>
+                    <div class="text-lg font-bold text-white tabular-nums" id="go-shots">0</div>
+                    <div class="text-[10px] text-white/40 uppercase">Shots</div>
+                </div>
+                <div class="bg-white/5 rounded-xl p-3 border border-white/5">
+                    <div class="text-2xl mb-1">💀</div>
+                    <div class="text-lg font-bold text-white tabular-nums" id="go-enemies">0</div>
+                    <div class="text-[10px] text-white/40 uppercase">Killed</div>
+                </div>
+            </div>
+
+            <button onclick="closeGameOver()"
+                class="w-full bg-white text-black hover:bg-gray-200 font-bold py-4 rounded-xl transition-all transform hover:scale-[1.02] shadow-lg">
+                RETURN TO BASE
+            </button>
+        </div>
+    </div>
+
 
     <!-- Main Application wrap -->
     <div id="app-content" class="min-h-screen flex flex-col p-6 lg:p-12 overflow-x-hidden">

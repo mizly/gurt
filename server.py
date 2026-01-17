@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import asyncio
 import time
+import random
 from dataclasses import dataclass, field, asdict
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
@@ -259,6 +260,24 @@ class ConnectionManager:
             })
             save_leaderboard(leaderboard)
             
+            # Generate Dummy Stats for Demo
+            final_stats = {
+                "score": self.game_state.score,
+                "distance": f"{random.randint(50, 500)}m",
+                "shots": random.randint(10, 100),
+                "enemies": random.randint(0, 15)
+            }
+            
+            # 1. Notify the player specifically with game over stats
+            if self.current_player_ws:
+                try:
+                    await self.current_player_ws.send_text(json.dumps({
+                        "type": "game_over",
+                        "stats": final_stats
+                    }))
+                except:
+                    pass
+
             self.current_player_ws = None
             await self.broadcast_game_update()
             
