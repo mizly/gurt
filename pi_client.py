@@ -5,6 +5,7 @@ import numpy as np
 import time
 
 import struct
+import ssl
 
 SERVER_URL = "ws://localhost:8000/ws/pi"
 #SERVER_URL = "wss://uottahack-8-327580bc1291.herokuapp.com/ws/pi"
@@ -76,7 +77,13 @@ async def send_video(websocket):
 
 async def main():
     print(f"Connecting to {SERVER_URL}...")
-    async with websockets.connect(SERVER_URL) as websocket:
+    
+    ssl_context = None
+    if SERVER_URL.startswith("wss"):
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ssl_context.load_verify_locations("cacert.pem")
+    
+    async with websockets.connect(SERVER_URL, ssl=ssl_context) as websocket:
         print("Connected!")
         # Run receive and send loops concurrently
         await asyncio.gather(
