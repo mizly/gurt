@@ -114,7 +114,8 @@ class ConnectionManager:
             "queue": [p["name"] for p in self.waiting_queue],
             "leaderboard": sorted(leaderboard, key=lambda x: x['score'], reverse=True)[:10],
             "ammo": self.game_state.ammo,
-            "max_ammo": self.game_state.max_ammo
+            "max_ammo": self.game_state.max_ammo,
+            "enemies": self.game_state.enemies
         }
         
         json_payload = json.dumps(payload)
@@ -331,7 +332,7 @@ class ConnectionManager:
                     # Parse 16-bit buttons
                     buttons_int = int.from_bytes(data[6:], byteorder='little')
                     buttons_bin = f"{buttons_int:016b}"[::-1]
-                    print(f"Control Data: Analog={analog} Buttons={buttons_bin}")
+                    #print(f"Control Data: Analog={analog} Buttons={buttons_bin}")
 
                     # Fire Logic
                     if buttons_int & 0x1:
@@ -377,9 +378,9 @@ class ConnectionManager:
             data = message["bytes"]
             
             # Debug Print every 30 frames
-            self.frame_count += 1
-            if self.frame_count % 30 == 0:
-                print(f"Server received video frame {self.frame_count} ({len(data)} bytes)")
+            #self.frame_count += 1
+            #if self.frame_count % 30 == 0:
+             #   print(f"Server received video frame {self.frame_count} ({len(data)} bytes)")
 
             # 1. Forward raw video to clients
             await self.broadcast_to_clients(data)

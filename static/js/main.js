@@ -19,7 +19,7 @@ import {
     addScore,
     closeGameOver,
     dismissQueueModal // Added
-} from './ui.js?v=14';
+} from './ui.js?v=16';
 import { connectWallet } from './wallet.js';
 
 // Expose functions to global scope for HTML event handlers

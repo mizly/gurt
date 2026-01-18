@@ -1,6 +1,6 @@
 import { sendJson } from './network.js';
 import { processTransaction, connectWallet, getUserWallet } from './wallet.js';
-import { initHUD, updateHUD } from './hud.js?v=14';
+import { initHUD, updateHUD } from './hud.js?v=16';
 import { controllerState } from './input.js?v=14';
 
 // DOM Elements

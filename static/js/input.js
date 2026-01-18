@@ -1,5 +1,5 @@
 // Keyboard State
-import { attemptFire } from './hud.js?v=14';
+import { attemptFire } from './hud.js?v=16';
 
 const keys = {
     w: false, s: false, a: false, d: false,

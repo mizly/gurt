@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import random
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
@@ -38,6 +39,9 @@ class GameState:
     ammo: int = 30
     max_ammo: int = 30
     last_fire_time: float = 0
+    
+    # Enemies
+    enemies: List[Dict] = field(default_factory=list)
 
     def init_game(self, name: str, mode: str, p_class: str, key: str = None):
         self.is_active = True
@@ -56,6 +60,18 @@ class GameState:
         else:
             self.max_ammo = 30
         self.ammo = self.max_ammo
+        
+        # Init Enemies
+        self.enemies = []
+        callsigns = ["ALPHA", "BRAVO", "CHARLIE", "DELTA", "ECHO", "FOXTROT"]
+        for i in range(6):
+            hp = random.randint(60, 150)
+            self.enemies.append({
+                "id": i,
+                "name": callsigns[i],
+                "hp": hp,
+                "max_hp": hp
+            })
 
     def fire_ammo(self) -> bool:
         """Returns True if a shot was fired successfully (ammo > 0 and not on cooldown)."""

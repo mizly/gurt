@@ -24,10 +24,12 @@ export function initHUD() {
     speedBar = document.getElementById('hud-speed-bar-fill');
     cooldownBar = document.getElementById('hud-cooldown-bar');
     muzzleFlash = document.querySelector('.muzzle-flash');
+    enemyPanel = document.getElementById('hud-enemy-panel');
 }
 
 let lastFireTime = 0;
 let cooldownDuration = 500; // ms
+let enemyPanel = null;
 
 export function updateHUD(gameState, inputState) {
     if (!hudOverlay) return;
@@ -51,6 +53,33 @@ export function updateHUD(gameState, inputState) {
             else ammoCount.classList.remove('text-red-500');
         }
         if (maxAmmoDisplay) maxAmmoDisplay.textContent = `/ ${maxAmmo}`;
+    }
+
+    // 2. Update Enemies
+    if (gameState.enemies && enemyPanel) {
+        if (enemyPanel.childElementCount !== gameState.enemies.length) {
+            enemyPanel.innerHTML = gameState.enemies.map(e => `
+                <div id="enemy-${e.id}" class="bg-black/50 backdrop-blur border border-white/10 rounded-lg p-1.5">
+                    <div class="flex justify-between text-[8px] text-white/70 mb-0.5 font-mono">
+                        <span class="enemy-id">${e.name}</span>
+                        <span class="enemy-hp">${e.hp}/${e.max_hp}</span>
+                    </div>
+                    <div class="h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div class="enemy-bar h-full bg-red-500 transition-all duration-300" style="width: ${(e.hp / e.max_hp) * 100}%"></div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            gameState.enemies.forEach((e, i) => {
+                const el = enemyPanel.children[i];
+                if (el) {
+                    const hpSpan = el.querySelector('.enemy-hp');
+                    const bar = el.querySelector('.enemy-bar');
+                    if (hpSpan) hpSpan.textContent = `${e.hp}/${e.max_hp}`;
+                    if (bar) bar.style.width = `${(e.hp / e.max_hp) * 100}%`;
+                }
+            });
+        }
     }
 
     // 2. Simulate Speedometer
