@@ -22,7 +22,6 @@ const statusDisplay = document.getElementById('status-display');
 const playerStatus = document.getElementById('player-status');
 const currentPilotName = document.getElementById('current-pilot-name');
 const stopBtn = document.getElementById('stop-btn');
-const simControls = document.getElementById('sim-controls');
 
 // State
 let myName = "";
@@ -107,9 +106,8 @@ export function updateGameState(state) {
     if (isMyTurn) {
         playerStatus.textContent = "PILOTING";
         playerStatus.className = "text-[10px] font-bold tracking-wide uppercase text-ios-green bg-ios-green/10 px-2 py-0.5 rounded-full";
-        // Show Abort & Sim Controls
+        // Show Abort
         stopBtn.classList.remove('hidden');
-        if (simControls) simControls.classList.remove('hidden');
         // Clear Title
         document.title = "gurt.tech";
     } else {
@@ -168,7 +166,6 @@ export function updateGameState(state) {
         }
         // Hide control buttons
         stopBtn.classList.add('hidden');
-        if (simControls) simControls.classList.add('hidden');
     }
 
     // Game Mode UI

@@ -172,9 +172,9 @@ async def send_video(websocket):
                 # Compress and Send
                 _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
                 
-                # Repack timestamp for server (ms)
-                # C code sends seconds (double)
-                pack_timestamp = timestamp_s * 1000.0
+                # Use system time for ping calculation to ensure synchronization
+                # The C binary's timestamp might be monotonic or from a different epoch
+                pack_timestamp = time.time() * 1000.0
                 packed_time = struct.pack('<d', pack_timestamp)
                 
                 await websocket.send(packed_time + buffer.tobytes())

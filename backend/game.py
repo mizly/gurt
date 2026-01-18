@@ -45,6 +45,10 @@ class GameState:
     # Enemies & Tracking
     enemies: List[Dict] = field(default_factory=list)
     tracker: Tracker = field(default_factory=Tracker)
+    
+    # Stats Tracking
+    shots_fired: int = 0
+    enemies_killed: int = 0
 
     def init_game(self, name: str, mode: str, p_class: str, key: str = None):
         self.is_active = True
@@ -57,6 +61,8 @@ class GameState:
         
         # Reset Tracker
         self.tracker = Tracker()
+        self.shots_fired = 0
+        self.enemies_killed = 0
         
         # Init Ammo (+50% increase)
         if p_class == 'interceptor':
@@ -92,6 +98,7 @@ class GameState:
             
         if self.ammo > 0:
             self.ammo -= 1
+            self.shots_fired += 1
             self.last_fire_time = now
             return True
         return False
@@ -156,6 +163,7 @@ class GameState:
         if enemy['hp'] == 0:
             # Kill Bonus
             self.score += 100
+            self.enemies_killed += 1
             print(f"DESTROYED {enemy['name']}!")
             
             # Check if all enemies are dead

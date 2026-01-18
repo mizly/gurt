@@ -281,12 +281,12 @@ class ConnectionManager:
             })
             save_leaderboard(leaderboard)
             
-            # Generate Dummy Stats for Demo
+            # Generate Stats for Game Over Screen
             final_stats = {
                 "score": self.game_state.score,
-                "distance": f"{random.randint(50, 500)}m",
-                "shots": random.randint(10, 100),
-                "enemies": random.randint(0, 15)
+                "distance": f"{random.randint(50, 500)}m", # Fake for now
+                "shots": self.game_state.shots_fired,
+                "enemies": self.game_state.enemies_killed
             }
             
             # 1. Notify the player specifically with game over stats
