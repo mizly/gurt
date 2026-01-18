@@ -20,6 +20,8 @@ def save_leaderboard(data):
     with open(LEADERBOARD_FILE, "w") as f:
         json.dump(data, f)
 
+from .tracker import Tracker
+
 # Global State
 leaderboard: List[Dict] = load_leaderboard()
 
@@ -40,8 +42,9 @@ class GameState:
     max_ammo: int = 30
     last_fire_time: float = 0
     
-    # Enemies
+    # Enemies & Tracking
     enemies: List[Dict] = field(default_factory=list)
+    tracker: Tracker = field(default_factory=Tracker)
 
     def init_game(self, name: str, mode: str, p_class: str, key: str = None):
         self.is_active = True
@@ -51,6 +54,9 @@ class GameState:
         self.is_ranked = (mode == 'ranked')
         self.player_key = key
         self.player_class = p_class
+        
+        # Reset Tracker
+        self.tracker = Tracker()
         
         # Init Ammo
         if p_class == 'interceptor':
@@ -68,7 +74,7 @@ class GameState:
             hp = random.randint(60, 150)
             self.enemies.append({
                 "id": i,
-                "name": callsigns[i],
+                "name": callsigns[i], # This matches QR text
                 "hp": hp,
                 "max_hp": hp
             })
@@ -89,3 +95,69 @@ class GameState:
             self.last_fire_time = now
             return True
         return False
+        
+    def attempt_shot(self) -> Dict:
+        """
+        Fires a shot AND checks for targets.
+        Returns dict with keys: 'fired' (bool), 'hits' (list of damaged enemy names)
+        """
+        result = {'fired': False, 'hits': []}
+        
+        if self.fire_ammo():
+            result['fired'] = True
+            
+            # Check for targets in crosshair
+            # Threshold 60px radius from center (approx 10% of width)
+            targets = self.tracker.get_crosshair_targets(threshold=60)
+            
+            # Define Damage per class
+            damage = 25
+            if self.player_class == 'juggernaut': damage = 60
+            elif self.player_class == 'interceptor': damage = 10
+            
+            callsigns = ["ALPHA", "BRAVO", "CHARLIE", "DELTA", "ECHO", "FOXTROT"]
+            
+            for t in targets:
+                raw_id = t['id']
+                target_name = raw_id
+                
+                # Try to map enemy_N to Call Signs
+                # e.g. "enemy_1" -> "ALPHA" (index 0)
+                # "enemy_2" -> "BRAVO" (index 1)
+                lower_id = raw_id.lower()
+                if "enemy_" in lower_id:
+                    try:
+                        # Extract number
+                        parts = lower_id.split('_')
+                        if len(parts) > 1:
+                            idx = int(parts[1]) - 1 # enemy_1 -> index 0
+                            if 0 <= idx < len(callsigns):
+                                target_name = callsigns[idx]
+                    except:
+                        pass
+                
+                # Find enemy object
+                enemy = next((e for e in self.enemies if e['name'] == target_name), None)
+                
+                # Fallback: Check if raw_id matches directly (case insensitive?)
+                if not enemy:
+                     enemy = next((e for e in self.enemies if e['name'].lower() == target_name.lower()), None)
+
+                if enemy and enemy['hp'] > 0:
+                    self.apply_damage(enemy, damage)
+                    result['hits'].append(enemy['name']) # Return the Game Name (ALPHA), not the QR text
+                    
+        return result
+
+    def apply_damage(self, enemy, damage):
+        enemy['hp'] = max(0, enemy['hp'] - damage)
+        print(f"HIT {enemy['name']} for {damage} dmg! Remaining: {enemy['hp']}")
+        
+        if enemy['hp'] == 0:
+            # Kill Bonus
+            self.score += 100
+            print(f"DESTROYED {enemy['name']}!")
+            # Convert to "Dead" state? OR Respawn?
+            # For now, keep at 0. Maybe respawn after delay?
+            # self.enemies.remove(enemy) # Don't remove, keeps HUD stable
+

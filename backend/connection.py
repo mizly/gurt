@@ -334,13 +334,15 @@ class ConnectionManager:
                     # Parse 16-bit buttons
                     buttons = int.from_bytes(data[6:], byteorder='little')
                     
-                    # Print status
-                    #print(f"Received: Analog={analog} Buttons={buttons:016b}")
-
                     # Fire Logic
                     if buttons & 0x1:
-                        if self.game_state.fire_ammo():
+                        # Use attempt_shot instead of simple fire_ammo
+                        shot_result = self.game_state.attempt_shot()
+                        if shot_result['fired']:
                             print(f"Fired! Ammo: {self.game_state.ammo}")
+                            # If we hit something, we should broadcast update immediately
+                            if shot_result['hits']:
+                                await self.broadcast_game_update()
 
                 await self.broadcast_to_pi(data)
             
@@ -388,7 +390,7 @@ class ConnectionManager:
             # Debug Print every 30 frames
             #self.frame_count += 1
             #if self.frame_count % 30 == 0:
-             #   print(f"Server received video frame {self.frame_count} ({len(data)} bytes)")
+            #   print(f"Server received video frame {self.frame_count} ({len(data)} bytes)")
 
             # 1. Forward raw video to clients (Data now includes 8-byte timestamp header)
             # Forward AS IS so client can measure latency
@@ -400,6 +402,7 @@ class ConnectionManager:
                 if not hasattr(self, 'is_cv_running'):
                     self.is_cv_running = False
                 
+                # Check directly if we should run CV (every 3 frames roughly)
                 if not self.is_cv_running and self.frame_count % 3 == 0:
                     self.is_cv_running = True
                     # Strip 8-byte timestamp for CV
@@ -408,6 +411,8 @@ class ConnectionManager:
                         asyncio.create_task(self.run_cv_task(image_data))
                     else:
                         self.is_cv_running = False
+                
+                self.frame_count += 1
                             
             except Exception as e:
                  print(f"CV Dispatch Error: {e}")
@@ -420,6 +425,12 @@ class ConnectionManager:
             loop = asyncio.get_running_loop()
             # Run blocking CV code in a thread pool
             qr_results = await loop.run_in_executor(None, process_frame_for_qr, data)
+            
+            # Update Tracker Implementation
+            try:
+                self.game_state.tracker.update(qr_results)
+            except Exception as e:
+                print(f"Tracker Update Error: {e}")
             
             # Broadcast results
             json_payload = json.dumps({
@@ -437,5 +448,6 @@ class ConnectionManager:
             print(f"CV Task Error: {e}")
         finally:
             self.is_cv_running = False
+
         
 

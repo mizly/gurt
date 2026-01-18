@@ -165,6 +165,10 @@ async def send_video(websocket):
                     frame = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
                     cv2.putText(frame, f"fmt={fmt}", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
 
+                # Resize to 640x480 to match Method 1 and reduce bandwidth
+                if frame.shape[1] != 640 or frame.shape[0] != 480:
+                     frame = cv2.resize(frame, (640, 480))
+
                 # Compress and Send
                 _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
                 
