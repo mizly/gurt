@@ -1,7 +1,7 @@
 import { sendJson } from './network.js';
 import { processTransaction, connectWallet, getUserWallet } from './wallet.js';
-import { initHUD, updateHUD } from './hud.js?v=10';
-import { controllerState } from './input.js?v=10';
+import { initHUD, updateHUD } from './hud.js?v=14';
+import { controllerState } from './input.js?v=14';
 
 // DOM Elements
 export const videoFeed = document.getElementById('video-feed');

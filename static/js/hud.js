@@ -7,6 +7,7 @@ let ammoCount = null;
 let maxAmmoDisplay = null;
 let speedVal = null;
 let speedBar = null;
+let cooldownBar = null;
 let muzzleFlash = null;
 
 // State
@@ -21,22 +22,30 @@ export function initHUD() {
     maxAmmoDisplay = document.getElementById('hud-max-ammo');
     speedVal = document.getElementById('hud-speed-val');
     speedBar = document.getElementById('hud-speed-bar-fill');
+    cooldownBar = document.getElementById('hud-cooldown-bar');
     muzzleFlash = document.querySelector('.muzzle-flash');
 }
 
+let lastFireTime = 0;
+let cooldownDuration = 500; // ms
+
 export function updateHUD(gameState, inputState) {
     if (!hudOverlay) return;
-
-    // Visibility: Only show if game is active AND I am the player
-    // (Actual visibility toggle is handled in ui.js based on role, but we can double check)
 
     // 1. Update Ammo
     if (gameState.ammo !== undefined) {
         currentAmmo = gameState.ammo;
         maxAmmo = gameState.max_ammo || 30; // Default
 
+        // Infer Cooldown based on Max Ammo (Class)
+        // Vanguard (30) -> 500ms
+        // Interceptor (60) -> 200ms
+        // Juggernaut (10) -> 1000ms
+        if (maxAmmo === 60) cooldownDuration = 200;
+        else if (maxAmmo === 10) cooldownDuration = 1000;
+        else cooldownDuration = 500;
+
         if (ammoCount) {
-            // Animate if changed?
             ammoCount.textContent = currentAmmo.toString().padStart(2, '0');
             if (currentAmmo <= 5) ammoCount.classList.add('text-red-500');
             else ammoCount.classList.remove('text-red-500');
@@ -44,15 +53,7 @@ export function updateHUD(gameState, inputState) {
         if (maxAmmoDisplay) maxAmmoDisplay.textContent = `/ ${maxAmmo}`;
     }
 
-    // 2. Simulate Speedometer based on Input
-    // We don't have real speed telemetry, but we know if the user is pressing 'W' (Forward)
-    // inputState.axes[1] is -127 to 127. Close to -127 is Forward (usually, or + dependent on mapping)
-    // Let's assume standard tank controls: Left Stick Y (axes[1])
-
-    // Mapping: 0-255 range from earlier logs, center 127. 
-    // < 127 is decreasing (Forward?), > 127 is increasing (Backward?)
-    // Let's assume deviation from 127 is speed
-
+    // 2. Simulate Speedometer
     const forwardInput = (inputState.length !== undefined && inputState[1] !== undefined)
         ? Math.abs(inputState[1] - 127)
         : (inputState.axes ? Math.abs((inputState.axes[1] || 0) * 127) : 0);
@@ -60,23 +61,47 @@ export function updateHUD(gameState, inputState) {
     const turnInput = (inputState.length !== undefined && inputState[0] !== undefined)
         ? Math.abs(inputState[0] - 127)
         : (inputState.axes ? Math.abs((inputState.axes[0] || 0) * 127) : 0);
-    const targetSpeed = Math.min((forwardInput + turnInput) / 1.2, 100); // 0-100 scale estimate
+    const targetSpeed = Math.min((forwardInput + turnInput) / 1.2, 100);
 
-    // Smooth interpolation
     currentSpeed += (targetSpeed - currentSpeed) * 0.1;
 
     if (speedVal) speedVal.textContent = Math.floor(currentSpeed);
     if (speedBar) speedBar.style.width = `${Math.min(currentSpeed, 100)}%`;
 }
 
-export function triggerFireVFX() {
+export function attemptFire() {
+    const now = Date.now();
+    if (now - lastFireTime < cooldownDuration) return false;
+
+    // Check if we have ammo (client-side prediction)
+    if (currentAmmo <= 0) return false;
+
+    lastFireTime = now;
+
+    // Cooldown Animation
+    if (cooldownBar) {
+        // Reset to 0 with no transition
+        cooldownBar.style.transition = 'none';
+        cooldownBar.style.width = '0%';
+
+        // Force reflow
+        void cooldownBar.offsetWidth;
+
+        // Animate to full
+        cooldownBar.style.transition = `width ${cooldownDuration}ms linear`;
+        cooldownBar.style.width = '100%';
+    }
+
+    triggerFireVFX();
+    return true;
+}
+
+function triggerFireVFX() {
     if (muzzleFlash) {
-        // Reset animation
         muzzleFlash.classList.remove('active');
         void muzzleFlash.offsetWidth; // Force reflow
         muzzleFlash.classList.add('active');
 
-        // Screenshake?
         const container = document.querySelector('.video-container');
         if (container) {
             container.animate([

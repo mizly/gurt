@@ -1,5 +1,5 @@
 // Keyboard State
-import { triggerFireVFX } from './hud.js?v=10';
+import { attemptFire } from './hud.js?v=14';
 
 const keys = {
     w: false, s: false, a: false, d: false,
@@ -99,7 +99,7 @@ export function updateInputState(setConnectionStateCallback) {
         let b = 0;
         if (keys.Space) {
             b |= 1; // Bit 0
-            triggerFireVFX();
+            attemptFire();
         }
         if (keys['1']) b |= (1 << 0);
         if (keys['2']) b |= (1 << 1);
