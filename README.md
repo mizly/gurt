@@ -85,6 +85,8 @@ This runs on the **Raspberry Pi 4**. It connects to the server, receives control
 python pi_client.py
 ```
 
+We have implemented 2 camera methods. The primary method opens a camera using OpenCV, which will works on most OSes (Windows, MacOS) as well as Linux based OSes. For QNX, we have developed our own camera driver as a secondary method. This requires the camera_example3_viewfinder binary which we have precompiled in this repository.
+
 *Note: You can also run this on your laptop for testing; it will fallback to your webcam.*
 
 ## Usage
