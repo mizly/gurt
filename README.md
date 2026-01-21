@@ -1,4 +1,4 @@
-# UOttaHack 8 Project - RoboCommander 🤖 + Solana ◎
+# UOttaHack 8 Project - GURT (Ground Unit Response Tank)
 ## Features
 - **Real-time Video Feed**: Low latency streaming from Pi.
 - **Low Latency Control**: WebSocket-based control loop.
