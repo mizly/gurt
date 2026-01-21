@@ -13,11 +13,11 @@ This project implements a real-time remote control system with video streaming u
 ## Hardware Architecture
 
 Our system uses a dual-controller architecture for reliability and performance:
-1. **Raspberry Pi 4 (Master)**:
+1. **Raspberry Pi 4 (Main Controller)**:
    - OS: **QNX 8** (Unix-based RTOS).
    - Responsibilities: Runs the Python client (`pi_client.py`), handles WebSocket communication, and streams video.
    - **Custom Camera Driver**: To overcome QNX's default limitations, we developed a native camera driver that boosted frame rates from a stuttering **3 FPS to a smooth 30 FPS**.
-2. **Arduino (Slave)**:
+2. **Arduino (Motor Controller)**:
    - Responsibilities: Receives serial commands from the Pi to control the physical motors of the robot.
    - Logic: Located in `turning.ino`.
 
